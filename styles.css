@@ -195,3 +195,70 @@ h2 {
     border-radius: 4px;
     font-size: 14px;
 }
+
+
+.contact-info {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #666;
+}
+
+.contact-info p {
+    margin: 5px 0;
+}
+
+.contact-info i {
+    margin-right: 10px;
+    color: #3498db;
+}
+
+
+/* For tablets */
+@media screen and (max-width: 768px) {
+    .container {
+        flex-direction: column;
+    }
+    
+    .left-column, .middle-column, .right-column {
+        width: 100%;
+        margin-bottom: 20px;
+    }
+    
+    .profile-image {
+        width: 150px;
+        height: 150px;
+    }
+}
+
+/* For mobile phones */
+@media screen and (max-width: 480px) {
+    .publication-item h3 {
+        font-size: 16px;
+    }
+    
+    .social-links a {
+        font-size: 20px;
+    }
+    
+    .profile-image {
+        width: 120px;
+        height: 120px;
+    }
+}
+
+.container {
+    max-width: 90%;
+    margin: 0 auto;
+}
+
+.publication-item {
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+
+.skills-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+}
