@@ -118,7 +118,7 @@ body {
   color: rgba(255,255,255,0.9);
 }
 
-.hero .social-row { display: flex; gap: 10px; }
+.hero .social-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
 .hero .social-icon {
   background: rgba(255,255,255,0.14);
@@ -127,6 +127,35 @@ body {
 
 .hero .social-icon:hover {
   background: rgba(255,255,255,0.28);
+}
+
+.cv-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  color: #1a3c6e;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-family: inherit;
+  padding: 9px 16px;
+  border: none;
+  border-radius: 8px;
+  text-decoration: none;
+  margin-left: 6px;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+}
+
+.cv-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+}
+
+.cv-btn:disabled {
+  opacity: 0.7;
+  cursor: progress;
+  transform: none;
 }
 
 .card-heading {
@@ -697,4 +726,118 @@ body {
   }
   .lightbox-prev { left: 6px; }
   .lightbox-next { right: 6px; }
+}
+
+/* ===== CV (PDF export) document styles =====
+   This is rendered off-screen and converted to a PDF by html2pdf —
+   it never appears in the normal page layout. */
+#cv-export-root {
+  position: fixed;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.cv-doc {
+  width: 760px;
+  background: #fff;
+  color: #1a2230;
+  font-family: 'Inter', Arial, sans-serif;
+  padding: 4px;
+}
+
+.cv-header h1 {
+  font-family: 'Poppins', sans-serif;
+  font-size: 26px;
+  font-weight: 800;
+  color: #122544;
+  margin-bottom: 4px;
+}
+
+.cv-role {
+  font-size: 13px;
+  color: #3a4250;
+  margin-bottom: 4px;
+}
+
+.cv-contact {
+  font-size: 11.5px;
+  color: #6b7280;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 2px solid #1a3c6e;
+}
+
+.cv-intro {
+  font-size: 12px;
+  color: #3a4250;
+  line-height: 1.6;
+  margin-bottom: 18px;
+}
+
+.cv-section { margin-bottom: 18px; }
+
+.cv-section-title {
+  font-family: 'Poppins', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1a3c6e;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1.5px solid #dde3ed;
+}
+
+.cv-timeline-row {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.cv-timeline-date {
+  flex: 0 0 130px;
+  font-size: 10.5px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.cv-timeline-place {
+  color: #9aa0a8;
+}
+
+.cv-timeline-content {
+  flex: 1;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #1a2230;
+}
+
+.cv-note {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.cv-line {
+  font-size: 12px;
+  color: #1a2230;
+  line-height: 1.6;
+  margin-bottom: 6px;
+}
+
+.cv-pub {
+  font-size: 11.5px;
+  color: #1a2230;
+  line-height: 1.55;
+  margin-bottom: 9px;
+}
+
+.cv-student {
+  font-size: 12px;
+  color: #1a2230;
+  margin-bottom: 10px;
+  line-height: 1.5;
 }

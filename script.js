@@ -462,7 +462,7 @@ function buildCVHtml() {
       <div class="cv-header">
         <h1>Dr. Ashish Srivastava</h1>
         <p class="cv-role">Assistant Professor – Senior Scale (Research), Department of Mechanical Engineering, Presidency University, Bangalore</p>
-        <p class="cv-contact">ashishsrivastava@presidencyuniversity.in &middot; srivastavashishj@gmail.com &middot; +91 9450990596 &middot; Bangalore, Karnataka &middot; sites.google.com/view/dr-ashish-srivastava</p>
+        <p class="cv-contact">ashishsrivastava@presidencyuniversity.in &middot; srivastavashishj@gmail.com &middot; +91 9450990596 &middot; Bangalore, Karnataka &middot; rahnish.github.io/Digital_CV_Ashish</p>
       </div>
       <p class="cv-intro">${escapeHtml(CV_INTRO)}</p>
       ${cvSectionHtml('Professional Experience', experienceHtml)}
@@ -487,32 +487,48 @@ function highlightAuthorsPlain(authorsStr) {
 async function downloadCV() {
   const btn = document.getElementById('cv-download-btn');
   const originalText = btn.textContent;
+
+  if (typeof html2pdf === 'undefined') {
+    alert('The CV generator is still loading — please wait a second and try again.');
+    return;
+  }
+
   btn.disabled = true;
   btn.textContent = 'Generating…';
 
+  let container = null;
   try {
-    const container = document.createElement('div');
+    container = document.createElement('div');
     container.id = 'cv-export-root';
     container.innerHTML = buildCVHtml();
     document.body.appendChild(container);
+
+    // Let the browser actually paint the off-screen content (and load
+    // fonts) before html2canvas tries to capture it — without this,
+    // capture can stall waiting on layout/fonts that haven't settled.
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    if (document.fonts && document.fonts.ready) {
+      await document.fonts.ready;
+    }
 
     await html2pdf()
       .set({
         margin: 14,
         filename: 'Ashish_Srivastava_CV.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: { scale: 1.5, useCORS: true, logging: false },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+        pagebreak: { mode: ['css', 'legacy'] }
       })
       .from(container.querySelector('.cv-doc'))
       .save();
-
-    document.body.removeChild(container);
   } catch (err) {
     console.error('CV generation failed:', err);
     alert('Sorry, the CV could not be generated right now. Please try again in a moment.');
   } finally {
+    if (container && container.parentNode) {
+      document.body.removeChild(container);
+    }
     btn.disabled = false;
     btn.textContent = originalText;
   }
