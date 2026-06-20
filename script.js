@@ -178,7 +178,12 @@ function renderPublications(rows) {
   applyYearFilter(activeYear);
 }
 
+let allProjectRows = [];
+let allStudentRows = [];
+let allWorkshopRows = [];
+
 function renderProjects(rows) {
+  allProjectRows = rows;
   const html = rows.map(p => `
     <div class="entry-card">
       <div class="row-between">
@@ -192,6 +197,7 @@ function renderProjects(rows) {
 }
 
 function renderStudents(rows) {
+  allStudentRows = rows;
   const html = rows.map(s => `
     <div class="student-card">
       <div class="student-head">
@@ -206,6 +212,7 @@ function renderStudents(rows) {
 }
 
 function renderWorkshops(rows) {
+  allWorkshopRows = rows;
   const html = rows.map(w => `
     <div class="entry-card">
       <p class="entry-title" style="font-size:13.5px;">${escapeHtml(w.title)}</p>
@@ -351,6 +358,166 @@ async function loadAll() {
   await Promise.all(tasks);
 }
 
+// ===================== CV GENERATION =====================
+// These sections rarely change, so they're written once here rather than
+// pulled from a sheet. Everything else (publications, projects, PhD
+// students, workshops) reuses the exact same data already fetched for
+// the tabs above — so the CV always matches what's on the page.
+
+const CV_INTRO = `I am Dr. Ashish Srivastava, and I completed my Ph.D. from IIT-BHU, Varanasi, in 2019. My Ph.D. research focused on Barkhausen noise signal processing generated from ground steel to assess its surface integrity. My current research work focuses on the application of Artificial Intelligence (AI) and Machine Learning (ML) techniques in Mechanical Engineering. Additionally, I am working on a government-funded project by the Government of Karnataka, where I am utilizing deep learning techniques to segment different layers in the grinding of steel.`;
+
+const CV_EXPERIENCE = [
+  { range: '09/2022 – present', place: 'Bangalore, India', role: 'Assistant Professor (Research), Presidency University' },
+  { range: '07/2019 – 09/2022', place: 'Bangalore, India', role: 'Assistant Professor, Presidency University' },
+  { range: '08/2012 – 11/2013', place: 'Prayagraj, India', role: 'Assistant Professor, United College of Engineering and Management' }
+];
+
+const CV_EDUCATION = [
+  { range: '11/2013 – 04/2019', place: 'Varanasi, India', degree: 'PhD, IIT-BHU, Varanasi', note: 'Research Area: Barkhausen noise signal processing for assessing the surface integrity of ground steel.' },
+  { range: '09/2021 – 12/2025', place: 'Madras, India', degree: 'BSc in Programming and Data Science, IIT-Madras' },
+  { range: '05/2021 – 11/2022', place: 'Hyderabad, India', degree: 'Post Graduate Diploma in Artificial Intelligence and Machine Learning, Central University of Hyderabad' },
+  { range: '07/2010 – 06/2012', place: 'Prayagraj, India', degree: 'M.Tech (Production Engg), MNNIT, Allahabad', note: 'Research Area: Modelling of EDDG process using Artificial Neural Network and Genetic Algorithm.' },
+  { range: '07/2006 – 06/2010', place: 'Kanpur, India', degree: 'B.Tech (Mechanical Engg), UIET, CSJM University' }
+];
+
+const CV_SKILLS = [
+  { label: 'Core skills', value: 'Application of Artificial Intelligence in Material discovery, X-Ray diffraction, Scanning electron microscopy, Non-destructive characterisation' },
+  { label: 'Programming Languages', value: 'Python, Java, SQL, JavaScript, Bash, HTML/CSS' },
+  { label: 'Technologies/Frameworks', value: 'Pandas, Numpy, Sklearn, Excel, Linux, Flask, REST, VUE' }
+];
+
+const CV_REFERENCES = [
+  { name: 'Dr. Meghanshu Vashista', role: 'Professor, IIT-BHU', contact: 'mvashista.mec@iitbhu.ac.in &middot; 9453263545' },
+  { name: 'Dr. Binayak Nahak', role: 'Assistant Professor, MNNIT-Prayagraj', contact: 'binayaka@mnnit.ac.in' }
+];
+
+function cvSectionHtml(title, innerHtml) {
+  return `
+    <div class="cv-section">
+      <h2 class="cv-section-title">${title}</h2>
+      ${innerHtml}
+    </div>
+  `;
+}
+
+function buildCVHtml() {
+  const experienceHtml = CV_EXPERIENCE.map(e => `
+    <div class="cv-timeline-row">
+      <div class="cv-timeline-date">${escapeHtml(e.range)}<br><span class="cv-timeline-place">${escapeHtml(e.place)}</span></div>
+      <div class="cv-timeline-content">${escapeHtml(e.role)}</div>
+    </div>
+  `).join('');
+
+  const educationHtml = CV_EDUCATION.map(e => `
+    <div class="cv-timeline-row">
+      <div class="cv-timeline-date">${escapeHtml(e.range)}<br><span class="cv-timeline-place">${escapeHtml(e.place)}</span></div>
+      <div class="cv-timeline-content">
+        <strong>${escapeHtml(e.degree)}</strong>
+        ${e.note ? `<div class="cv-note">${escapeHtml(e.note)}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+
+  const skillsHtml = CV_SKILLS.map(s => `<p class="cv-line"><strong>${escapeHtml(s.label)}:</strong> ${escapeHtml(s.value)}</p>`).join('');
+
+  const projectsHtml = allProjectRows.map(p => `
+    <div class="cv-timeline-row">
+      <div class="cv-timeline-date">${escapeHtml(p.duration || '')}</div>
+      <div class="cv-timeline-content">
+        <strong>${escapeHtml(p.title)}</strong>
+        <div class="cv-note">${escapeHtml(p.funding_agency)}${p.amount ? ' (' + escapeHtml(p.amount) + ')' : ''}${p.status ? ' &middot; ' + escapeHtml(p.status) : ''}</div>
+      </div>
+    </div>
+  `).join('') || '<p class="cv-line">No projects listed.</p>';
+
+  const journalPubs = allPublicationRows.filter(r => (r.type || 'Journal').toLowerCase() !== 'conference');
+  const confPubs = allPublicationRows.filter(r => (r.type || '').toLowerCase() === 'conference');
+
+  const pubLine = p => `
+    <p class="cv-pub">
+      ${escapeHtml(p.title)}, <em>${escapeHtml(p.journal)}</em>, ${highlightAuthorsPlain(p.authors)}, ${escapeHtml(p.year)}${p.quartile ? ' (' + escapeHtml(p.quartile) + ')' : ''}${p.doi ? ` — DOI: ${escapeHtml(p.doi)}` : ''}
+    </p>
+  `;
+
+  const publicationsHtml = journalPubs.map(pubLine).join('') || '<p class="cv-line">No publications listed.</p>';
+  const conferenceHtml = confPubs.map(pubLine).join('');
+
+  const studentsHtml = allStudentRows.map(s => `
+    <div class="cv-student">
+      <strong>${escapeHtml(s.name)}</strong> — ${escapeHtml(s.phd_title)}
+      <div class="cv-note">Role: ${escapeHtml(s.role)}${s.year_awarded ? ' &middot; Year of award: ' + escapeHtml(s.year_awarded) : ' &middot; Ongoing'}</div>
+    </div>
+  `).join('') || '<p class="cv-line">No students listed.</p>';
+
+  const workshopsHtml = allWorkshopRows.map(w => `
+    <p class="cv-line">${escapeHtml(w.title)}, organized by ${escapeHtml(w.institution)}, ${formatDate(w.start_date)}${w.end_date && w.end_date !== w.start_date ? ' – ' + formatDate(w.end_date) : ''}</p>
+  `).join('') || '<p class="cv-line">No workshops listed.</p>';
+
+  const referencesHtml = CV_REFERENCES.map(r => `
+    <p class="cv-line"><strong>${escapeHtml(r.name)}</strong>, ${escapeHtml(r.role)} — ${r.contact}</p>
+  `).join('');
+
+  return `
+    <div class="cv-doc">
+      <div class="cv-header">
+        <h1>Dr. Ashish Srivastava</h1>
+        <p class="cv-role">Assistant Professor – Senior Scale (Research), Department of Mechanical Engineering, Presidency University, Bangalore</p>
+        <p class="cv-contact">ashishsrivastava@presidencyuniversity.in &middot; srivastavashishj@gmail.com &middot; +91 9450990596 &middot; Bangalore, Karnataka &middot; sites.google.com/view/dr-ashish-srivastava</p>
+      </div>
+      <p class="cv-intro">${escapeHtml(CV_INTRO)}</p>
+      ${cvSectionHtml('Professional Experience', experienceHtml)}
+      ${cvSectionHtml('Education', educationHtml)}
+      ${cvSectionHtml('Skills', skillsHtml)}
+      ${cvSectionHtml('Projects', projectsHtml)}
+      ${cvSectionHtml('Publications', publicationsHtml)}
+      ${confPubs.length ? cvSectionHtml('Conference Publications', conferenceHtml) : ''}
+      ${cvSectionHtml('PhD Students Guided', studentsHtml)}
+      ${cvSectionHtml('Workshops / Seminars Attended', workshopsHtml)}
+      ${cvSectionHtml('References', referencesHtml)}
+    </div>
+  `;
+}
+
+function highlightAuthorsPlain(authorsStr) {
+  // Plain-text version (no <span> highlight) since this goes into a PDF
+  // where we just want clean, copyable text.
+  return escapeHtml(authorsStr);
+}
+
+async function downloadCV() {
+  const btn = document.getElementById('cv-download-btn');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Generating…';
+
+  try {
+    const container = document.createElement('div');
+    container.id = 'cv-export-root';
+    container.innerHTML = buildCVHtml();
+    document.body.appendChild(container);
+
+    await html2pdf()
+      .set({
+        margin: 14,
+        filename: 'Ashish_Srivastava_CV.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+      })
+      .from(container.querySelector('.cv-doc'))
+      .save();
+
+    document.body.removeChild(container);
+  } catch (err) {
+    console.error('CV generation failed:', err);
+    alert('Sorry, the CV could not be generated right now. Please try again in a moment.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
 // ===================== TAB SWITCHING =====================
 function initTabs() {
   const tabButtons = document.querySelectorAll('.tab-btn');
@@ -371,4 +538,9 @@ document.addEventListener('DOMContentLoaded', () => {
   initTabs();
   initLightbox();
   loadAll();
+
+  const cvBtn = document.getElementById('cv-download-btn');
+  if (cvBtn) {
+    cvBtn.addEventListener('click', downloadCV);
+  }
 });
