@@ -387,108 +387,213 @@ const CV_SKILLS = [
 ];
 
 const CV_REFERENCES = [
-  { name: 'Dr. Meghanshu Vashista', role: 'Professor, IIT-BHU', contact: 'mvashista.mec@iitbhu.ac.in &middot; 9453263545' },
+  { name: 'Dr. Meghanshu Vashista', role: 'Professor, IIT-BHU', contact: 'mvashista.mec@iitbhu.ac.in · 9453263545' },
   { name: 'Dr. Binayak Nahak', role: 'Assistant Professor, MNNIT-Prayagraj', contact: 'binayaka@mnnit.ac.in' }
 ];
 
-function cvSectionHtml(title, innerHtml) {
-  return `
-    <div class="cv-section">
-      <h2 class="cv-section-title">${title}</h2>
-      ${innerHtml}
-    </div>
-  `;
+// ===== PDF layout helpers =====
+const PDF_PAGE_W = 595.28;   // A4 width in pt
+const PDF_PAGE_H = 841.89;   // A4 height in pt
+const PDF_MARGIN = 46;
+const PDF_CONTENT_W = PDF_PAGE_W - PDF_MARGIN * 2;
+const NAVY = [26, 60, 110];
+const DARK = [26, 34, 48];
+const GRAY = [107, 114, 128];
+
+function pdfNewState() {
+  return { y: PDF_MARGIN };
 }
 
-function buildCVHtml() {
-  const experienceHtml = CV_EXPERIENCE.map(e => `
-    <div class="cv-timeline-row">
-      <div class="cv-timeline-date">${escapeHtml(e.range)}<br><span class="cv-timeline-place">${escapeHtml(e.place)}</span></div>
-      <div class="cv-timeline-content">${escapeHtml(e.role)}</div>
-    </div>
-  `).join('');
+function pdfCheckBreak(doc, state, needed) {
+  if (state.y + needed > PDF_PAGE_H - PDF_MARGIN) {
+    doc.addPage();
+    state.y = PDF_MARGIN;
+  }
+}
 
-  const educationHtml = CV_EDUCATION.map(e => `
-    <div class="cv-timeline-row">
-      <div class="cv-timeline-date">${escapeHtml(e.range)}<br><span class="cv-timeline-place">${escapeHtml(e.place)}</span></div>
-      <div class="cv-timeline-content">
-        <strong>${escapeHtml(e.degree)}</strong>
-        ${e.note ? `<div class="cv-note">${escapeHtml(e.note)}</div>` : ''}
-      </div>
-    </div>
-  `).join('');
+function pdfText(doc, state, text, opts = {}) {
+  const {
+    size = 10, style = 'normal', color = DARK, x = PDF_MARGIN,
+    width = PDF_CONTENT_W, lineHeight = null, spacingAfter = 0
+  } = opts;
+  if (!text) return;
+  doc.setFont('helvetica', style);
+  doc.setFontSize(size);
+  doc.setTextColor(color[0], color[1], color[2]);
+  const lh = lineHeight || size * 1.32;
+  const lines = doc.splitTextToSize(String(text), width);
+  lines.forEach(line => {
+    pdfCheckBreak(doc, state, lh);
+    doc.text(line, x, state.y);
+    state.y += lh;
+  });
+  state.y += spacingAfter;
+}
 
-  const skillsHtml = CV_SKILLS.map(s => `<p class="cv-line"><strong>${escapeHtml(s.label)}:</strong> ${escapeHtml(s.value)}</p>`).join('');
+function pdfSectionTitle(doc, state, title) {
+  pdfCheckBreak(doc, state, 34);
+  state.y += 8;
+  pdfText(doc, state, title.toUpperCase(), { size: 11.5, style: 'bold', color: NAVY, lineHeight: 13 });
+  state.y += 2;
+  doc.setDrawColor(221, 227, 237);
+  doc.setLineWidth(0.75);
+  doc.line(PDF_MARGIN, state.y, PDF_PAGE_W - PDF_MARGIN, state.y);
+  state.y += 12;
+}
 
-  const projectsHtml = allProjectRows.map(p => `
-    <div class="cv-timeline-row">
-      <div class="cv-timeline-date">${escapeHtml(p.duration || '')}</div>
-      <div class="cv-timeline-content">
-        <strong>${escapeHtml(p.title)}</strong>
-        <div class="cv-note">${escapeHtml(p.funding_agency)}${p.amount ? ' (' + escapeHtml(p.amount) + ')' : ''}${p.status ? ' &middot; ' + escapeHtml(p.status) : ''}</div>
-      </div>
-    </div>
-  `).join('') || '<p class="cv-line">No projects listed.</p>';
+function pdfTimelineEntry(doc, state, dateLine, mainText, noteText) {
+  pdfCheckBreak(doc, state, 30);
+  pdfText(doc, state, dateLine, { size: 8.5, style: 'italic', color: GRAY, lineHeight: 11, spacingAfter: 1 });
+  pdfText(doc, state, mainText, { size: 10, style: 'bold', color: DARK, lineHeight: 13 });
+  if (noteText) {
+    pdfText(doc, state, noteText, { size: 9, style: 'normal', color: GRAY, lineHeight: 11.5 });
+  }
+  state.y += 7;
+}
 
+// ===== CV content builders (each returns nothing, just writes to doc) =====
+function pdfBuildExperience(doc, state) {
+  pdfSectionTitle(doc, state, 'Professional Experience');
+  CV_EXPERIENCE.forEach(e => pdfTimelineEntry(doc, state, `${e.range}  ·  ${e.place}`, e.role));
+}
+
+function pdfBuildEducation(doc, state) {
+  pdfSectionTitle(doc, state, 'Education');
+  CV_EDUCATION.forEach(e => pdfTimelineEntry(doc, state, `${e.range}  ·  ${e.place}`, e.degree, e.note));
+}
+
+function pdfBuildSkills(doc, state) {
+  pdfSectionTitle(doc, state, 'Skills');
+  CV_SKILLS.forEach(s => {
+    pdfCheckBreak(doc, state, 24);
+    const lh = 12.5;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(...DARK);
+    doc.text(s.label + ':', PDF_MARGIN, state.y);
+    const labelWidth = doc.getTextWidth(s.label + ':  ');
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...DARK);
+    const lines = doc.splitTextToSize(s.value, PDF_CONTENT_W - labelWidth);
+    lines.forEach((line, idx) => {
+      pdfCheckBreak(doc, state, lh);
+      doc.text(line, idx === 0 ? PDF_MARGIN + labelWidth : PDF_MARGIN, state.y);
+      state.y += lh;
+    });
+    state.y += 3;
+  });
+}
+
+function pdfBuildProjects(doc, state) {
+  pdfSectionTitle(doc, state, 'Projects');
+  if (allProjectRows.length === 0) {
+    pdfText(doc, state, 'No projects listed.', { size: 9.5, color: GRAY });
+    return;
+  }
+  allProjectRows.forEach(p => {
+    const note = [p.funding_agency, p.amount, p.status].filter(Boolean).join('  ·  ');
+    pdfTimelineEntry(doc, state, p.duration || '', p.title, note);
+  });
+}
+
+function pdfBuildPublicationList(doc, state, rows) {
+  rows.forEach(p => {
+    const line = [
+      p.title,
+      p.journal,
+      p.authors,
+      [p.year, p.quartile ? `(${p.quartile})` : ''].filter(Boolean).join(' '),
+      p.doi ? `DOI: ${p.doi}` : ''
+    ].filter(Boolean).join(', ');
+    pdfText(doc, state, line, { size: 9, color: DARK, lineHeight: 12, spacingAfter: 6 });
+  });
+}
+
+function pdfBuildPublications(doc, state) {
   const journalPubs = allPublicationRows.filter(r => (r.type || 'Journal').toLowerCase() !== 'conference');
   const confPubs = allPublicationRows.filter(r => (r.type || '').toLowerCase() === 'conference');
 
-  const pubLine = p => `
-    <p class="cv-pub">
-      ${escapeHtml(p.title)}, <em>${escapeHtml(p.journal)}</em>, ${highlightAuthorsPlain(p.authors)}, ${escapeHtml(p.year)}${p.quartile ? ' (' + escapeHtml(p.quartile) + ')' : ''}${p.doi ? ` — DOI: ${escapeHtml(p.doi)}` : ''}
-    </p>
-  `;
+  pdfSectionTitle(doc, state, 'Publications');
+  if (journalPubs.length === 0) {
+    pdfText(doc, state, 'No publications listed.', { size: 9.5, color: GRAY });
+  } else {
+    pdfBuildPublicationList(doc, state, journalPubs);
+  }
 
-  const publicationsHtml = journalPubs.map(pubLine).join('') || '<p class="cv-line">No publications listed.</p>';
-  const conferenceHtml = confPubs.map(pubLine).join('');
-
-  const studentsHtml = allStudentRows.map(s => `
-    <div class="cv-student">
-      <strong>${escapeHtml(s.name)}</strong> — ${escapeHtml(s.phd_title)}
-      <div class="cv-note">Role: ${escapeHtml(s.role)}${s.year_awarded ? ' &middot; Year of award: ' + escapeHtml(s.year_awarded) : ' &middot; Ongoing'}</div>
-    </div>
-  `).join('') || '<p class="cv-line">No students listed.</p>';
-
-  const workshopsHtml = allWorkshopRows.map(w => `
-    <p class="cv-line">${escapeHtml(w.title)}, organized by ${escapeHtml(w.institution)}, ${formatDate(w.start_date)}${w.end_date && w.end_date !== w.start_date ? ' – ' + formatDate(w.end_date) : ''}</p>
-  `).join('') || '<p class="cv-line">No workshops listed.</p>';
-
-  const referencesHtml = CV_REFERENCES.map(r => `
-    <p class="cv-line"><strong>${escapeHtml(r.name)}</strong>, ${escapeHtml(r.role)} — ${r.contact}</p>
-  `).join('');
-
-  return `
-    <div class="cv-doc">
-      <div class="cv-header">
-        <h1>Dr. Ashish Srivastava</h1>
-        <p class="cv-role">Assistant Professor – Senior Scale (Research), Department of Mechanical Engineering, Presidency University, Bangalore</p>
-        <p class="cv-contact">ashishsrivastava@presidencyuniversity.in &middot; srivastavashishj@gmail.com &middot; +91 9450990596 &middot; Bangalore, Karnataka &middot; rahnish.github.io/Digital_CV_Ashish</p>
-      </div>
-      <p class="cv-intro">${escapeHtml(CV_INTRO)}</p>
-      ${cvSectionHtml('Professional Experience', experienceHtml)}
-      ${cvSectionHtml('Education', educationHtml)}
-      ${cvSectionHtml('Skills', skillsHtml)}
-      ${cvSectionHtml('Projects', projectsHtml)}
-      ${cvSectionHtml('Publications', publicationsHtml)}
-      ${confPubs.length ? cvSectionHtml('Conference Publications', conferenceHtml) : ''}
-      ${cvSectionHtml('PhD Students Guided', studentsHtml)}
-      ${cvSectionHtml('Workshops / Seminars Attended', workshopsHtml)}
-      ${cvSectionHtml('References', referencesHtml)}
-    </div>
-  `;
+  if (confPubs.length > 0) {
+    pdfSectionTitle(doc, state, 'Conference Publications');
+    pdfBuildPublicationList(doc, state, confPubs);
+  }
 }
 
-function highlightAuthorsPlain(authorsStr) {
-  // Plain-text version (no <span> highlight) since this goes into a PDF
-  // where we just want clean, copyable text.
-  return escapeHtml(authorsStr);
+function pdfBuildStudents(doc, state) {
+  pdfSectionTitle(doc, state, 'PhD Students Guided');
+  if (allStudentRows.length === 0) {
+    pdfText(doc, state, 'No students listed.', { size: 9.5, color: GRAY });
+    return;
+  }
+  allStudentRows.forEach(s => {
+    pdfCheckBreak(doc, state, 26);
+    pdfText(doc, state, `${s.name} — ${s.phd_title}`, { size: 9.5, style: 'bold', color: DARK, lineHeight: 12.5 });
+    const note = `Role: ${s.role}${s.year_awarded ? '  ·  Year of award: ' + s.year_awarded : '  ·  Ongoing'}`;
+    pdfText(doc, state, note, { size: 8.5, color: GRAY, lineHeight: 11, spacingAfter: 5 });
+  });
+}
+
+function pdfBuildWorkshops(doc, state) {
+  pdfSectionTitle(doc, state, 'Workshops / Seminars Attended');
+  if (allWorkshopRows.length === 0) {
+    pdfText(doc, state, 'No workshops listed.', { size: 9.5, color: GRAY });
+    return;
+  }
+  allWorkshopRows.forEach(w => {
+    const dates = formatDate(w.start_date) + (w.end_date && w.end_date !== w.start_date ? ' – ' + formatDate(w.end_date) : '');
+    pdfText(doc, state, `${w.title}, organized by ${w.institution}, ${dates}`, { size: 9, lineHeight: 12, spacingAfter: 5 });
+  });
+}
+
+function pdfBuildReferences(doc, state) {
+  pdfSectionTitle(doc, state, 'References');
+  CV_REFERENCES.forEach(r => {
+    pdfCheckBreak(doc, state, 24);
+    pdfText(doc, state, r.name, { size: 9.5, style: 'bold', color: DARK, lineHeight: 12 });
+    pdfText(doc, state, `${r.role} — ${r.contact}`, { size: 8.5, color: GRAY, lineHeight: 11, spacingAfter: 5 });
+  });
+}
+
+function generateCVPdf() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait' });
+  const state = pdfNewState();
+
+  // Header
+  pdfText(doc, state, 'Dr. Ashish Srivastava', { size: 21, style: 'bold', color: NAVY, lineHeight: 24, spacingAfter: 2 });
+  pdfText(doc, state, 'Assistant Professor – Senior Scale (Research), Department of Mechanical Engineering, Presidency University, Bangalore', { size: 10, color: DARK, lineHeight: 13, spacingAfter: 3 });
+  pdfText(doc, state, 'ashishsrivastava@presidencyuniversity.in  ·  srivastavashishj@gmail.com  ·  +91 9450990596  ·  Bangalore, Karnataka  ·  rahnish.github.io/Digital_CV_Ashish', { size: 8.5, color: GRAY, lineHeight: 11, spacingAfter: 4 });
+  doc.setDrawColor(26, 60, 110);
+  doc.setLineWidth(1.5);
+  doc.line(PDF_MARGIN, state.y, PDF_PAGE_W - PDF_MARGIN, state.y);
+  state.y += 14;
+
+  pdfText(doc, state, CV_INTRO, { size: 9.5, color: DARK, lineHeight: 13, spacingAfter: 4 });
+
+  pdfBuildExperience(doc, state);
+  pdfBuildEducation(doc, state);
+  pdfBuildSkills(doc, state);
+  pdfBuildProjects(doc, state);
+  pdfBuildPublications(doc, state);
+  pdfBuildStudents(doc, state);
+  pdfBuildWorkshops(doc, state);
+  pdfBuildReferences(doc, state);
+
+  doc.save('Ashish_Srivastava_CV.pdf');
 }
 
 async function downloadCV() {
   const btn = document.getElementById('cv-download-btn');
   const originalText = btn.textContent;
 
-  if (typeof html2pdf === 'undefined') {
+  if (typeof window.jspdf === 'undefined') {
     alert('The CV generator is still loading — please wait a second and try again.');
     return;
   }
@@ -496,39 +601,12 @@ async function downloadCV() {
   btn.disabled = true;
   btn.textContent = 'Generating…';
 
-  let container = null;
   try {
-    container = document.createElement('div');
-    container.id = 'cv-export-root';
-    container.innerHTML = buildCVHtml();
-    document.body.appendChild(container);
-
-    // Let the browser actually paint the off-screen content (and load
-    // fonts) before html2canvas tries to capture it — without this,
-    // capture can stall waiting on layout/fonts that haven't settled.
-    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    if (document.fonts && document.fonts.ready) {
-      await document.fonts.ready;
-    }
-
-    await html2pdf()
-      .set({
-        margin: 14,
-        filename: 'Ashish_Srivastava_CV.pdf',
-        image: { type: 'jpeg', quality: 0.95 },
-        html2canvas: { scale: 1.5, useCORS: true, logging: false },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['css', 'legacy'] }
-      })
-      .from(container.querySelector('.cv-doc'))
-      .save();
+    generateCVPdf();
   } catch (err) {
     console.error('CV generation failed:', err);
     alert('Sorry, the CV could not be generated right now. Please try again in a moment.');
   } finally {
-    if (container && container.parentNode) {
-      document.body.removeChild(container);
-    }
     btn.disabled = false;
     btn.textContent = originalText;
   }
