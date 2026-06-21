@@ -311,14 +311,32 @@ function initLightbox() {
 }
 
 // ===================== VIDEOS =====================
+function isDirectVideoFile(url) {
+  return /\.(mp4|webm|ogg|mov)(\?.*)?$/i.test((url || '').trim());
+}
+
 function renderVideos(rows) {
   const html = rows.map(v => {
-    const vid = extractYouTubeId(v.youtube_url);
-    if (!vid) return '';
+    const source = (v.video_url || v.youtube_url || '').trim();
+    if (!source) return '';
+
+    const vid = extractYouTubeId(source);
+    let embedHtml;
+
+    if (vid) {
+      embedHtml = `<iframe src="https://www.youtube-nocookie.com/embed/${vid}" title="${escapeHtml(v.title)}" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+    } else if (isDirectVideoFile(source)) {
+      embedHtml = `<video controls preload="metadata" playsinline><source src="${escapeHtml(source)}">Your browser doesn't support embedded video.</video>`;
+    } else {
+      // Not a recognized YouTube link or video file — skip it rather
+      // than show a broken player.
+      return '';
+    }
+
     return `
       <div class="video-card">
         <div class="video-embed">
-          <iframe src="https://www.youtube-nocookie.com/embed/${vid}" title="${escapeHtml(v.title)}" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+          ${embedHtml}
         </div>
         <div class="video-info">
           <p class="video-title">${escapeHtml(v.title)}</p>
